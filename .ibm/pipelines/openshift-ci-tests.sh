@@ -21,7 +21,7 @@ cleanup() {
   rm -rf ~/tmpbin
 }
 
-trap cleanup EXIT
+trap cleanup SIGINT SIGTERM EXIT
 
 source "${DIR}/utils.sh"
 
