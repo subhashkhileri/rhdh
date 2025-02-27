@@ -315,7 +315,7 @@ export class UIhelper {
   }
 
   async clickTab(tabName: string) {
-    const tabLocator = this.page.locator(`text="${tabName}"`);
+    const tabLocator = this.page.getByRole("tab", { name: tabName });
     await tabLocator.waitFor({ state: "visible" });
     await tabLocator.click();
   }
@@ -528,7 +528,9 @@ export class UIhelper {
   }
 
   async clickById(id: string) {
-    await this.page.click(`#${id}`);
+    const locator = this.page.locator(`#${id}`);
+    await locator.waitFor({ state: "attached" });
+    await locator.click();
   }
 
   async clickSpanByText(text: string) {
