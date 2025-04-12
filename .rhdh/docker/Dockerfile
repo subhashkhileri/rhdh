@@ -205,7 +205,8 @@ RUN \
   -e "s/(\"Last Commit\": \"(.+)\")/\1, \"Build Time\": \"$now\"/" && \
   cat packages/app/src/build-metadata.json; echo
 
-RUN echo "=== YARN BUILD ==="; "$YARN" build --filter=backend
+# suppress git warnings about dubious ownership in repository at '/opt/app-root/src' when building the backend app
+RUN echo "=== YARN BUILD BACKEND ==="; git config --global --add safe.directory /opt/app-root/src; "$YARN" build --filter=backend
 
 RUN echo "=== EXPORT DYNAMIC PLUGINS (with --no-install) ==="; FAILED=0; "$YARN" export-dynamic --filter=./dynamic-plugins/wrappers/* || true; \
 for d in /tmp/xfs-*; do if [[ -f ${d}/build.log ]]; then \
@@ -220,16 +221,20 @@ RUN echo "=== YARN COPY DYNAMIC PLUGINS in $(pwd) ==="; "$YARN" copy-dynamic-plu
 RUN echo "=== DELETE DYNAMIC PLUGINS/* (except dist/) from $(pwd) ==="; find dynamic-plugins -maxdepth 1 -mindepth 1 -type d -not -name dist -exec rm -Rf {} \;
 
 # Stage 4 - Build the actual backend image and install production dependencies
-FROM skeleton AS cleanup
+# Upstream only
+# FROM skeleton AS cleanup
 
 # Upstream only - copy the install dependencies from the build stage and context
-COPY --from=build $CONTAINER_SOURCE/yarn.lock \
-  $CONTAINER_SOURCE/package.json \
-  $CONTAINER_SOURCE/packages/backend/dist/skeleton.tar.gz \
-  $CONTAINER_SOURCE/packages/backend/dist/bundle.tar.gz \
-  ./
-ENV TARBALL_PATH=.
+# COPY --from=build $CONTAINER_SOURCE/yarn.lock \
+#   $CONTAINER_SOURCE/package.json \
+#   ./
+# COPY --from=build \
+#   $CONTAINER_SOURCE/packages/backend/dist/skeleton.tar.gz \
+#   $CONTAINER_SOURCE/packages/backend/dist/bundle.tar.gz \
+#   ./packages/backend/dist/
 
+# unpack and remove tarballs
+ENV TARBALL_PATH=./packages/backend/dist
 RUN tar xzf "$TARBALL_PATH"/skeleton.tar.gz; tar xzf "$TARBALL_PATH"/bundle.tar.gz; \
   rm -f "$TARBALL_PATH"/skeleton.tar.gz "$TARBALL_PATH"/bundle.tar.gz
 
@@ -305,8 +310,11 @@ RUN microdnf install -y python3.11 python3.11-pip python3.11-devel make cmake cp
   microdnf clean all
 
 # Upstream only - copy from cleanup stage
-COPY --from=cleanup --chown=1001:1001 $CONTAINER_SOURCE/ ./
-# Upstream only - copy embedded dynamic plugins from $CONTAINER_SOURCE
+# COPY --from=cleanup --chown=1001:1001 $CONTAINER_SOURCE/ ./
+# Downstream only - copy from build, not cleanup stage
+COPY --from=build --chown=1001:1001 "$CONTAINER_SOURCE"/ ./
+
+# Copy embedded dynamic plugins from $CONTAINER_SOURCE
 COPY --from=build $CONTAINER_SOURCE/dynamic-plugins/dist/ ./dynamic-plugins/dist/
 
 # RHIDP-4220 - make Konflux preflight and EC checks happy - [check-container] Create a directory named /licenses and include all relevant licensing
