@@ -656,6 +656,8 @@ run_tests() {
   local e2e_tests_dir
   e2e_tests_dir=$(pwd)
 
+  echo "Running tests debug"
+
   yarn install --immutable > /tmp/yarn.install.log.txt 2>&1
 
   INSTALL_STATUS=$?
@@ -1003,6 +1005,7 @@ check_and_test() {
   if check_backstage_running "${release_name}" "${namespace}" "${url}" "${max_attempts}" "${wait_seconds}"; then
     echo "Display pods for verification..."
     oc get pods -n "${namespace}"
+    echo "Running tests..."
     run_tests "${release_name}" "${namespace}"
   else
     echo "Backstage is not running. Exiting..."
