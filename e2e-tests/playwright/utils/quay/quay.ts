@@ -32,7 +32,7 @@ export class ImageRegistry {
       (i) => `(${i}:\\s\\d+[^\\w]*)`,
     );
     return new RegExp(
-      `^(Passed|unsupported|Queued|Medium|Low|(?:${securityScan.join("|")})+)$`,
+      `^(Passed|Unsupported|Queued|Medium|Low|(?:${securityScan.join("|")})+)$`,
     );
   }
 
