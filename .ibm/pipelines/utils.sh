@@ -653,12 +653,14 @@ run_tests() {
   local release_name=$1
   local project=$2
   cd "${DIR}/../../e2e-tests"
+  echo "${DIR}/../../e2e-tests"
   local e2e_tests_dir
   e2e_tests_dir=$(pwd)
 
   echo "Running tests debug"
 
   yarn install --immutable > /tmp/yarn.install.log.txt 2>&1
+  echo "Yarn install completed successfully."
 
   INSTALL_STATUS=$?
   if [ $INSTALL_STATUS -ne 0 ]; then
@@ -670,6 +672,7 @@ run_tests() {
   fi
 
   yarn playwright install chromium
+  echo "Playwright install completed successfully."
 
   Xvfb :99 &
   export DISPLAY=:99
