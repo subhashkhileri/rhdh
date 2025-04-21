@@ -74,6 +74,9 @@ main() {
   esac
 
 echo "Main script completed with result: ${OVERALL_RESULT}"
+# Sleep for 2 hours (7200 seconds)
+sleep 7200
+
 exit "${OVERALL_RESULT}"
 
 }
