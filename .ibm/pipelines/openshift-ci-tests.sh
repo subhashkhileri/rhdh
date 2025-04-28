@@ -91,7 +91,8 @@ main() {
 
 echo "Main script completed with result: ${OVERALL_RESULT}"
 sleep 21600  # Sleep for 6 hours
-exit "${OVERALL_RESULT}"
+echo "Sleeping for 6 hours completed"
+# exit "${OVERALL_RESULT}"
 
 }
 
