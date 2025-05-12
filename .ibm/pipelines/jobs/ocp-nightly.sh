@@ -11,6 +11,7 @@ handle_ocp_nightly() {
 
   cluster_setup
   initiate_deployments
+  sleep 7200  # Sleep for 2 hours (7200 seconds)
   deploy_test_backstage_customization_provider "${NAME_SPACE}"
 
   run_standard_deployment_tests
