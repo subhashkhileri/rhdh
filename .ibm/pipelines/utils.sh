@@ -899,13 +899,13 @@ get_helm_set_params() {
   local params=""
   
   # Add cluster router base
-  params+="--set global.clusterRouterBase=\"${K8S_CLUSTER_ROUTER_BASE}\" "
+  params+="--set global.clusterRouterBase=${K8S_CLUSTER_ROUTER_BASE} "
   
   # Add image repository
-  params+="--set upstream.backstage.image.repository=\"${QUAY_REPO}\" "
+  params+="--set upstream.backstage.image.repository=${QUAY_REPO} "
   
   # Add image tag
-  params+="--set upstream.backstage.image.tag=\"${TAG_NAME}\" "
+  params+="--set upstream.backstage.image.tag=${TAG_NAME} "
   
   # Add pull secrets if sealight job
   params+=$(if [[ "$JOB_NAME" == *"sealight"* ]]; then echo "--set upstream.backstage.image.pullSecrets[0]='quay-secret'"; fi)
