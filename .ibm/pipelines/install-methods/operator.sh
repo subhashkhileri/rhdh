@@ -9,7 +9,7 @@ install_rhdh_operator() {
 
   configure_namespace "$namespace"
 
-  if [[ -z "${IS_OPENSHIFT}" || "${IS_OPENSHIFT}" == "false" ]]; then
+  if [[ -z "${IS_OPENSHIFT}" || "${IS_OPENSHIFT,,}" == "false" ]]; then
     setup_image_pull_secret "rhdh-operator" "rh-pull-secret" "${REGISTRY_REDHAT_IO_SERVICE_ACCOUNT_DOCKERCONFIGJSON}"
   fi
   # Make sure script is up to date
@@ -50,4 +50,8 @@ deploy_rhdh_operator() {
   rendered_yaml=$(envsubst < "$backstage_crd_path")
   echo -e "Applying Backstage CRD from: $backstage_crd_path\n$rendered_yaml"
   echo "$rendered_yaml" | oc apply -f - -n "$namespace"
+}
+
+delete_rhdh_operator() {
+  kubectl delete namespace "$OPERATOR_MANAGER" --ignore-not-found
 }
