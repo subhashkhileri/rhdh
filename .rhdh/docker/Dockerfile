@@ -290,7 +290,7 @@ done; if [[ $hadFail -gt 0 ]]; then exit $hadFail; fi
 
 # Stage 5 - Build the runner image
 # https://registry.access.redhat.com/ubi9/nodejs-22-minimal
-FROM registry.access.redhat.com/ubi9/nodejs-22-minimal:9.5-1742929466 AS runner
+FROM registry.access.redhat.com/ubi9/nodejs-22-minimal:9.6-1747315151 AS runner
 USER 0
 
 ENV EXTERNAL_SOURCE_NESTED=.
