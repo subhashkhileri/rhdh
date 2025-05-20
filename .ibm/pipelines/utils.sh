@@ -946,7 +946,6 @@ rbac_deployment() {
 }
 
 initiate_deployments() {
-  TAG_NAME=fe0a39584b9cde3b9c3299b941fece64db91d648
   cd "${DIR}"
   base_deployment
   rbac_deployment
