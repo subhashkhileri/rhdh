@@ -616,8 +616,7 @@ run_tests() {
 
   yarn install --immutable > /tmp/yarn.install.log.txt 2>&1
 
-  echo "Running Sealights Utility"
-  node node_modules/sealights-playwright-plugin/importReplaceUtility.js playwright
+  [[ "$JOB_NAME" == *"sealight"* ]] && node node_modules/sealights-playwright-plugin/importReplaceUtility.js playwright
 
   INSTALL_STATUS=$?
   if [ $INSTALL_STATUS -ne 0 ]; then
@@ -876,7 +875,7 @@ perform_helm_install() {
   local value_file=$3
   
   helm upgrade -i "${release_name}" -n "${namespace}" \
-    "${HELM_REPO_NAME}/${HELM_IMAGE_NAME}" --version "${CHART_VERSION}" \
+    "${HELM_CHART_URL}" --version "${CHART_VERSION}" \
     -f "${DIR}/value_files/${value_file}" \
     $(get_helm_set_params)
 }
