@@ -534,13 +534,8 @@ apply_yaml_files() {
       oc apply -f "$dir/resources/topology_test/topology-test-route.yaml"
     fi
 
-    if [[ "$JOB_NAME" == *"sealight"* ]]; then
-        # Then create the secret directly from this encoded value
-        kubectl create secret docker-registry quay-secret \
-          --docker-server=quay.io \
-          --docker-username=$RHDH_SEALIGHTS_BOT_USER \
-          --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN
-    fi
+    # Create secret for sealight job to pull image from private quay repository.
+    [[ "$JOB_NAME" == *"sealight"* ]] && kubectl create secret docker-registry quay-secret --docker-server=quay.io --docker-username=$RHDH_SEALIGHTS_BOT_USER --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN --namespace="${project}"
 }
 
 deploy_test_backstage_customization_provider() {
@@ -851,11 +846,8 @@ cluster_setup_k8s_helm() {
 }
 
 # Helper function to get common helm set parameters
-get_helm_set_params() {
+get_image_helm_set_params() {
   local params=""
-  
-  # Add cluster router base
-  params+="--set global.clusterRouterBase=${K8S_CLUSTER_ROUTER_BASE} "
   
   # Add image repository
   params+="--set upstream.backstage.image.repository=${QUAY_REPO} "
@@ -864,7 +856,7 @@ get_helm_set_params() {
   params+="--set upstream.backstage.image.tag=${TAG_NAME} "
   
   # Add pull secrets if sealight job
-  params+=$(if [[ "$JOB_NAME" == *"sealight"* ]]; then echo "--set upstream.backstage.image.pullSecrets[0]='quay-secret'"; fi)
+  params+=$(if [[ "$JOB_NAME" == *"sealight"* ]]; then echo "--set 'upstream.backstage.image.pullSecrets[0]=quay-secret'"; fi)
   echo "${params}"
 }
 
@@ -877,7 +869,8 @@ perform_helm_install() {
   helm upgrade -i "${release_name}" -n "${namespace}" \
     "${HELM_CHART_URL}" --version "${CHART_VERSION}" \
     -f "${DIR}/value_files/${value_file}" \
-    $(get_helm_set_params)
+    --set global.clusterRouterBase="${K8S_CLUSTER_ROUTER_BASE}" \
+    $(get_image_helm_set_params)
 }
 
 base_deployment() {
@@ -973,12 +966,14 @@ initiate_runtime_deployment() {
   oc apply -f "$DIR/resources/postgres-db/postgres-crt-rds.yaml" -n "${namespace}"
   oc apply -f "$DIR/resources/postgres-db/postgres-cred.yaml" -n "${namespace}"
   oc apply -f "$DIR/resources/postgres-db/dynamic-plugins-root-PVC.yaml" -n "${namespace}"
+  # Create secret for sealight job to pull image from private quay repository.
+  [[ "$JOB_NAME" == *"sealight"* ]] && kubectl create secret docker-registry quay-secret --docker-server=quay.io --docker-username=$RHDH_SEALIGHTS_BOT_USER --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN --namespace="${namespace}"
+  
   helm upgrade -i "${release_name}" -n "${namespace}" \
     "${HELM_CHART_URL}" --version "${CHART_VERSION}" \
     -f "$DIR/resources/postgres-db/values-showcase-postgres.yaml" \
     --set global.clusterRouterBase="${K8S_CLUSTER_ROUTER_BASE}" \
-    --set upstream.backstage.image.repository="${QUAY_REPO}" \
-    --set upstream.backstage.image.tag="${TAG_NAME}"
+    $(get_image_helm_set_params)
 }
 
 initiate_sanity_plugin_checks_deployment() {
@@ -993,8 +988,7 @@ initiate_sanity_plugin_checks_deployment() {
     "${HELM_CHART_URL}" --version "${CHART_VERSION}" \
     -f "/tmp/${HELM_CHART_SANITY_PLUGINS_MERGED_VALUE_FILE_NAME}" \
     --set global.clusterRouterBase="${K8S_CLUSTER_ROUTER_BASE}" \
-    --set upstream.backstage.image.repository="${QUAY_REPO}" \
-    --set upstream.backstage.image.tag="${TAG_NAME}"
+    $(get_image_helm_set_params)
 }
 
 check_and_test() {
