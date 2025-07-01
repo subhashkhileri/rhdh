@@ -535,7 +535,7 @@ apply_yaml_files() {
     fi
 
     # Create secret for sealight job to pull image from private quay repository.
-    [[ "$JOB_NAME" == *"sealight"* ]] && kubectl create secret docker-registry quay-secret --docker-server=quay.io --docker-username=$RHDH_SEALIGHTS_BOT_USER --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN --namespace="${project}"
+    if [[ "$JOB_NAME" == *"sealight"* ]]; then kubectl create secret docker-registry quay-secret --docker-server=quay.io --docker-username=$RHDH_SEALIGHTS_BOT_USER --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN --namespace="${project}"; fi
 }
 
 deploy_test_backstage_customization_provider() {
@@ -620,7 +620,7 @@ run_tests() {
     echo "Yarn install completed successfully."
   fi
 
-  [[ "$JOB_NAME" == *"sealight"* ]] && node node_modules/sealights-playwright-plugin/importReplaceUtility.js playwright
+  if [[ "$JOB_NAME" == *"sealight"* ]]; then node node_modules/sealights-playwright-plugin/importReplaceUtility.js playwright; fi
 
   yarn playwright install chromium
 
@@ -967,7 +967,7 @@ initiate_runtime_deployment() {
   oc apply -f "$DIR/resources/postgres-db/postgres-cred.yaml" -n "${namespace}"
   oc apply -f "$DIR/resources/postgres-db/dynamic-plugins-root-PVC.yaml" -n "${namespace}"
   # Create secret for sealight job to pull image from private quay repository.
-  [[ "$JOB_NAME" == *"sealight"* ]] && kubectl create secret docker-registry quay-secret --docker-server=quay.io --docker-username=$RHDH_SEALIGHTS_BOT_USER --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN --namespace="${namespace}"
+  if [[ "$JOB_NAME" == *"sealight"* ]]; then kubectl create secret docker-registry quay-secret --docker-server=quay.io --docker-username=$RHDH_SEALIGHTS_BOT_USER --docker-password=$RHDH_SEALIGHTS_BOT_TOKEN --namespace="${namespace}"; fi
   
   helm upgrade -i "${release_name}" -n "${namespace}" \
     "${HELM_CHART_URL}" --version "${CHART_VERSION}" \
