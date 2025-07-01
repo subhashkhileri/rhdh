@@ -611,8 +611,6 @@ run_tests() {
 
   yarn install --immutable > /tmp/yarn.install.log.txt 2>&1
 
-  [[ "$JOB_NAME" == *"sealight"* ]] && node node_modules/sealights-playwright-plugin/importReplaceUtility.js playwright
-
   INSTALL_STATUS=$?
   if [ $INSTALL_STATUS -ne 0 ]; then
     echo "=== YARN INSTALL FAILED ==="
@@ -621,6 +619,8 @@ run_tests() {
   else
     echo "Yarn install completed successfully."
   fi
+
+  [[ "$JOB_NAME" == *"sealight"* ]] && node node_modules/sealights-playwright-plugin/importReplaceUtility.js playwright
 
   yarn playwright install chromium
 
