@@ -26,6 +26,7 @@ jobs:
   podman-push:
     name: Push Podman Image to Registry
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' }}
     permissions:
       contents: read
       issues: write
