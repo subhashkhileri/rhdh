@@ -48,13 +48,15 @@ jobs:
           echo "SHORT_SHA=$SHORT_SHA" >> $GITHUB_ENV
           ARTIFACT_NAME="podman-image-${BUILD_ID}-${SHORT_SHA}"
           echo "ARTIFACT_NAME=$ARTIFACT_NAME" >> $GITHUB_ENV
+          echo "SKIP_ARTIFACT_NAME=pr-${BUILD_ID}-${SHORT_SHA}-isSkipped" >> $GITHUB_ENV
           echo "Using artifact name: $ARTIFACT_NAME"
+          echo "Using skip artifact name: $SKIP_ARTIFACT_NAME"
 
       - name: Download Skip Status Artifact
         id: download-skip-status
         uses: actions/download-artifact@v4
         with:
-          name: pr-${{ github.event.workflow_run.pull_requests[0].number || inputs.buildId }}-${{ env.SHORT_SHA }}-isSkipped
+          name: ${{ env.SKIP_ARTIFACT_NAME }}
           path: ./rhdh-skip-artifacts
           run-id: ${{ github.event.workflow_run.id || github.run_id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
