@@ -3,7 +3,7 @@ name: Podman Push
 on:
   workflow_run:
     workflows:
-      - 'PR Build Image'
+      - 'PR Build Image (Hermetic)'
     types:
       - completed
   workflow_call:
