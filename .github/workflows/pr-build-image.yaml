@@ -25,7 +25,6 @@ concurrency:
 
 env:
   REGISTRY: quay.io
-  # IMAGE_NAME: rhdh-community/rhdh
   IMAGE_NAME: rhdh-community/rhdh
 
 jobs:
@@ -42,7 +41,6 @@ jobs:
       - name: Check Image and Relevant Changes
         id: check-image
         uses: ./.github/actions/check-image-and-changes
-      
       
       - name: Store isSkipped status
         run: |
