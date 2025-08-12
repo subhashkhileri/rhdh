@@ -44,7 +44,6 @@ jobs:
         id: check
         run: |
           if [[ "${{ github.event.pull_request.head.repo.full_name }}" == "${{ github.repository }}" ]]; then
-            echo "is_internal=true" >> $GITHUB_OUTPUT
             echo "✓ Internal PR - will run with PR code"
           else
             echo "is_internal=false" >> $GITHUB_OUTPUT
