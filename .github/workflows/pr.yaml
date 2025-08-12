@@ -37,8 +37,6 @@ jobs:
     environment:
       ${{ github.event.pull_request.head.repo.full_name == github.repository && 'internal' || 'external' }}
     runs-on: ubuntu-latest
-    outputs:
-      is_internal: ${{ steps.check.outputs.is_internal }}
     steps:
       - name: Check if internal PR
         id: check
