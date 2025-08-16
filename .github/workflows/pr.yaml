@@ -109,6 +109,18 @@ jobs:
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: tar -xzf packages/backend/dist/bundle.tar.gz -C packages/backend/dist
 
+      - name: Update source map relative paths to absolute paths (plugins only)
+        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
+        run: |
+          CONTAINER_SOURCE="${{ github.workspace }}"
+          cd $CONTAINER_SOURCE && \
+          for map_file in $(find plugins -path "*/dist/*.map" -type f); do \
+              if grep -q '"sources"' "$map_file"; then \
+                  plugin_base=${map_file%/dist/*}; \
+                  sed -i -E "s|\"(\\.\\.?/)+([^\"]*)\"|\"$CONTAINER_SOURCE/$plugin_base/\\2\"|g" "$map_file"; \
+              fi; \
+          done
+
       - name: Scan all packages with SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         env:
@@ -121,7 +133,7 @@ jobs:
             "plugins/licensed-users-info-backend:licensed-users-info-backend"
             "plugins/dynamic-plugins-info:dynamic-plugins-info"
             "packages/app:app"
-            "packages/backend/dist/bundle/packages/backend/dist:backend"
+            "packages/backend/dist/packages/backend/dist:backend"
             "packages/app-next:app-next"
             "packages/plugin-utils:plugin-utils"
           )
@@ -235,7 +247,7 @@ jobs:
 
       - name: Install SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: yarn add -D slnodejs
+        run: yarn add -D sealights-jest-plugin
 
       - name: Write SeaLights token into file
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -245,34 +257,10 @@ jobs:
         env:
           SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
-      - name: Configure SealLight
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
-
-      - name: Start SealLight test stage
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs start --tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --teststage "Unit Tests"
-
       - name: Run tests
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: yarn run test --continue --affected
-
-      - name: Upload JUnit XML report to SealLight
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs uploadReports --tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --reportFile "./jest-junit-results/junit.xml"
-
-      - name: Upload coverage reports to SealLight
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: |
-          # Upload coverage reports from all packages
-          find . -name "coverage-final.json" -path "*/coverage/*" | while read coverage_file; do
-            echo "Uploading coverage report: $coverage_file"
-            npx slnodejs nycReport --tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --report "$coverage_file"
-          done
-
-      - name: End SealLight test stage
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs end --tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId
+        run: yarn run test-sealights --continue --affected
+        
       - name: Install dynamic plugin dependencies
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: cd ./dynamic-plugins && yarn install && cd ..
