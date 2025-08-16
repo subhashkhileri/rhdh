@@ -97,17 +97,13 @@ jobs:
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: |
           echo "${SL_TOKEN}" > sltoken.txt
-          echo "Token last 7 chars : ...${SL_TOKEN: -7}"
+          echo "Token last 7 chars: ...${SL_TOKEN: -7}"
         env:
           SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
       - name: Configure SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
-
-      - name: Start SealLight build session
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs start --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid
 
       - name: Extract backend bundle for SealLight scan
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -135,13 +131,13 @@ jobs:
           
           # Verify build session file exists
           if [[ ! -f ./buildSessionId ]]; then
-            echo "Error: buildsessionid file not found. SealLight session may not be properly initialized."
+            echo "Error: buildSessionId file not found. SealLight session may not be properly initialized."
             exit 1
           fi
           
           # Verify build session file exists
-          if [[ ! -f ./buildsessionid ]]; then
-            echo "Error: buildsessionid file not found. SealLight session may not be properly initialized."
+          if [[ ! -f ./buildSessionId ]]; then
+            echo "Error: buildSessionId file not found. SealLight session may not be properly initialized."
             exit 1
           fi
           
