@@ -105,6 +105,10 @@ jobs:
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
 
+      - name: Start SealLight build session
+        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
+        run: npx slnodejs start --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid
+
       - name: Extract backend bundle for SealLight scan
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: tar -xzf packages/backend/dist/bundle.tar.gz -C packages/backend/dist
@@ -131,6 +135,12 @@ jobs:
           
           # Verify build session file exists
           if [[ ! -f ./buildSessionId ]]; then
+            echo "Error: buildsessionid file not found. SealLight session may not be properly initialized."
+            exit 1
+          fi
+          
+          # Verify build session file exists
+          if [[ ! -f ./buildsessionid ]]; then
             echo "Error: buildsessionid file not found. SealLight session may not be properly initialized."
             exit 1
           fi
