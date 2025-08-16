@@ -105,12 +105,18 @@ jobs:
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
 
+      - name: Start SealLight build session
+        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
+        run: npx slnodejs start --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid
+
       - name: Extract backend bundle for SealLight scan
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: tar -xzf packages/backend/dist/bundle.tar.gz -C packages/backend/dist
 
       - name: Scan all packages with SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
+        env:
+          NODE_DEBUG: sl
         run: |
           # Define scan targets: workspace_path:module_id
           scan_targets=(
@@ -127,17 +133,45 @@ jobs:
           # Common scan parameters
           common_params="--tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --scm none --projectroot ${{ github.workspace }}"
           
+          # Verify build session file exists
+          if [[ ! -f ./buildsessionid ]]; then
+            echo "Error: buildsessionid file not found. SealLight session may not be properly initialized."
+            exit 1
+          fi
+          
           # Scan each target
           for target in "${scan_targets[@]}"; do
             workspace_path="${target%:*}"
             module_id="${target#*:}"
+            full_path="${{ github.workspace }}/$workspace_path"
+            
             echo "Scanning $module_id at $workspace_path"
-            npx slnodejs scan $common_params --workspacepath "${{ github.workspace }}/$workspace_path" --uniqueModuleId "$module_id"
+            echo "Full path: $full_path"
+            
+            # Verify the path exists
+            if [[ ! -d "$full_path" ]]; then
+              echo "Warning: Directory $full_path does not exist, skipping scan for $module_id"
+              continue
+            fi
+            
+            # Run the scan with error handling
+            if ! npx slnodejs scan $common_params --workspacepath "$full_path" --uniqueModuleId "$module_id"; then
+              echo "Error: SealLight scan failed for $module_id at $full_path"
+              echo "Continuing with other scans..."
+              continue
+            fi
+            
+            echo "Successfully scanned $module_id"
           done
 
       - name: End SealLight build session
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs buildend --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --ok
+        if: ${{ steps.check-image.outputs.is_skipped != 'true' && always() }}
+        run: |
+          if [[ -f ./buildsessionid ]]; then
+            npx slnodejs buildend --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --ok
+          else
+            echo "Warning: buildsessionid file not found, cannot end SealLight session"
+          fi
 
   test:
     name: Test with Node.js ${{ matrix.node-version }}
