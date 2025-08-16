@@ -104,6 +104,8 @@ jobs:
       - name: Configure SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs config --token $SL_TOKEN --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
+        env:
+          SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
       - name: Extract backend bundle for SealLight scan
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -134,10 +136,14 @@ jobs:
             echo "Scanning $module_id at $workspace_path"
             npx slnodejs scan $common_params --workspacepath "${{ github.workspace }}/$workspace_path" --uniqueModuleId "$module_id"
           done
+        env:
+          SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
       - name: End SealLight build session
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs buildend --token $SL_TOKEN --buildsessionidFile ./buildsessionid --ok
+        env:
+          SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
   test:
     name: Test with Node.js ${{ matrix.node-version }}
@@ -212,6 +218,8 @@ jobs:
       - name: Configure SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs config --token $SL_TOKEN --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
+        env:
+          SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
       - name: Start SealLight test stage
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -237,7 +245,8 @@ jobs:
       - name: End SealLight test stage
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: npx slnodejs end --token $SL_TOKEN --buildsessionidFile ./buildsessionid
-
+        env:
+          SL_TOKEN: '${{secrets.SL_TOKEN}}'
       - name: Install dynamic plugin dependencies
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: cd ./dynamic-plugins && yarn install && cd ..
