@@ -103,9 +103,7 @@ jobs:
 
       - name: Configure SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs config --token $SL_TOKEN --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
-        env:
-          SL_TOKEN: '${{secrets.SL_TOKEN}}'
+        run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
 
       - name: Extract backend bundle for SealLight scan
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -127,7 +125,7 @@ jobs:
           )
           
           # Common scan parameters
-          common_params="--token $SL_TOKEN --buildsessionidFile ./buildsessionid --scm none --projectroot ${{ github.workspace }}"
+          common_params="--tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --scm none --projectroot ${{ github.workspace }}"
           
           # Scan each target
           for target in "${scan_targets[@]}"; do
@@ -136,14 +134,10 @@ jobs:
             echo "Scanning $module_id at $workspace_path"
             npx slnodejs scan $common_params --workspacepath "${{ github.workspace }}/$workspace_path" --uniqueModuleId "$module_id"
           done
-        env:
-          SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
       - name: End SealLight build session
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs buildend --token $SL_TOKEN --buildsessionidFile ./buildsessionid --ok
-        env:
-          SL_TOKEN: '${{secrets.SL_TOKEN}}'
+        run: npx slnodejs buildend --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --ok
 
   test:
     name: Test with Node.js ${{ matrix.node-version }}
@@ -217,13 +211,11 @@ jobs:
 
       - name: Configure SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs config --token $SL_TOKEN --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
-        env:
-          SL_TOKEN: '${{secrets.SL_TOKEN}}'
+        run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
 
       - name: Start SealLight test stage
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs start --token $SL_TOKEN --buildsessionidFile ./buildsessionid --teststage "Unit Tests"
+        run: npx slnodejs start --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --teststage "Unit Tests"
 
       - name: Run tests
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -231,7 +223,7 @@ jobs:
 
       - name: Upload JUnit XML report to SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs uploadReports --token $SL_TOKEN --buildsessionidFile ./buildsessionid --reportFile "./jest-junit-results/junit.xml"
+        run: npx slnodejs uploadReports --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --reportFile "./jest-junit-results/junit.xml"
 
       - name: Upload coverage reports to SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
@@ -239,14 +231,12 @@ jobs:
           # Upload coverage reports from all packages
           find . -name "coverage-final.json" -path "*/coverage/*" | while read coverage_file; do
             echo "Uploading coverage report: $coverage_file"
-            npx slnodejs nycReport --token $SL_TOKEN --buildsessionidFile ./buildsessionid --report "$coverage_file"
+            npx slnodejs nycReport --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid --report "$coverage_file"
           done
 
       - name: End SealLight test stage
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs end --token $SL_TOKEN --buildsessionidFile ./buildsessionid
-        env:
-          SL_TOKEN: '${{secrets.SL_TOKEN}}'
+        run: npx slnodejs end --tokenfile ./sltoken.txt --buildsessionidFile ./buildsessionid
       - name: Install dynamic plugin dependencies
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: cd ./dynamic-plugins && yarn install && cd ..
