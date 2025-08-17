@@ -139,7 +139,7 @@ jobs:
           )
           
           # Common scan parameters
-          common_params="--tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --scm none --projectroot ${{ github.workspace }}"
+          common_params="--tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --excludedpaths webpack --scm none --projectroot ${{ github.workspace }}"
           
           # Verify build session file exists
           if [[ ! -f ./buildSessionId ]]; then
