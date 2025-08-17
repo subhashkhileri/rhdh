@@ -255,7 +255,7 @@ jobs:
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: |
           echo "${SL_TOKEN}" > sltoken.txt
-          echo "Token last 7 chars: ...${SL_TOKEN: -7}"
+          echo "Token last 7 chars : ...${SL_TOKEN: -7}"
         env:
           SL_TOKEN: '${{secrets.SL_TOKEN}}'
 
