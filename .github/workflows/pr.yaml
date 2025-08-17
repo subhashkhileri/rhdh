@@ -260,7 +260,9 @@ jobs:
       - name: Run tests
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: yarn run test-sealights --continue --affected
-        
+        env:
+          NODE_DEBUG: sl
+          SL_LOG_LEVEL: debug
       - name: Install dynamic plugin dependencies
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: cd ./dynamic-plugins && yarn install && cd ..
