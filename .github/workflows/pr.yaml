@@ -103,7 +103,9 @@ jobs:
 
       - name: Configure SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${{ github.sha }}"
+        run: |
+          SHORT_SHA=$(echo "${{ github.event.pull_request.head.sha }}" | cut -c1-7)
+          npx slnodejs config --tokenfile ./sltoken.txt --appname "rhdh" --branch "pr-${{ github.event.pull_request.number }}-${{ github.head_ref }}" --build "pr-${{ github.event.pull_request.number }}-${SHORT_SHA}-${{ github.run_id }}-${{ github.run_attempt }}"
 
       - name: Extract backend bundle for SealLight scan
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
