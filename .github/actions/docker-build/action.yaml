@@ -236,9 +236,6 @@ runs:
         
         # Save metadata for the push workflow
         echo "$TAGS_LIST" > ./rhdh-podman-artifacts/tags.txt
-        echo "${{ steps.meta.outputs.labels }}" > ./rhdh-podman-artifacts/labels.txt
-        echo "${{ inputs.imageName }}" > ./rhdh-podman-artifacts/imageName.txt
-        echo "${{ inputs.registry }}" > ./rhdh-podman-artifacts/registry.txt
 
     - name: Upload image artifact
       if: ${{ inputs.enableHermeticBuild == 'true' }}
