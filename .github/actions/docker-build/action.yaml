@@ -115,42 +115,45 @@ runs:
       run: |        
         set -ex
 
-          echo "=== Fetching dependencies with hermeto ==="
-          # Build hermeto cache for rpm, yarn, and pip (currently does not support ARM64 due to quay.io/konflux-ci/hermeto:latest not having an arm64 image)
-          docker run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
-            --log-level DEBUG \
-            fetch-deps --dev-package-managers \
-            --source . \
-            --output /cachi2/output \
-            '[{"type": "rpm", "path": "."}, {"type": "yarn","path": "."}, {"type": "yarn","path": "./dynamic-plugins"}, {"type": "pip","path": "./python", "allow_binary": "false"}]'  || echo "Fetch-deps failed"
+        echo "=== Creating local cache directory ==="
+        mkdir -p ${{ env.LOCAL_CACHE_DIR }} || echo "Failed to create local cache directory"
+        
+        echo "=== Fetching dependencies with hermeto ==="
+        # Build hermeto cache for rpm, yarn, and pip (currently does not support ARM64 due to quay.io/konflux-ci/hermeto:latest not having an arm64 image)
+        podman run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
+          --log-level DEBUG \
+          fetch-deps --dev-package-managers \
+          --source . \
+          --output /cachi2/output \
+          '[{"type": "rpm", "path": "."}, {"type": "yarn","path": "."}, {"type": "yarn","path": "./dynamic-plugins"}, {"type": "pip","path": "./python", "allow_binary": "false"}]'  || echo "Fetch-deps failed"
+        
+        if [ -d ${{ env.LOCAL_CACHE_DIR }}/output ]; then
+          echo "=== Output directory exists, running generate-env ==="
           
-          if [ -d ${{ env.LOCAL_CACHE_DIR }}/output ]; then
-            echo "=== Output directory exists, running generate-env ==="
-            
-            # Generate environment file
-            docker run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
-                        --log-level DEBUG \
-                        generate-env --format env \
-                        --output /cachi2/cachi2.env /cachi2/output
-            
-          else
-            echo "No output directory found, skipping generate-env"
-            exit 1
-          fi
+          # Generate environment file
+          podman run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
+                      --log-level DEBUG \
+                      generate-env --format env \
+                      --output /cachi2/cachi2.env /cachi2/output
+          
+        else
+          echo "No output directory found, skipping generate-env"
+          exit 1
+        fi
 
-          if [ -d ./hermeto-cache/output ]; then
-            echo "=== Running inject-files ==="
-            
-            docker run --rm -v "$PWD:/source:z" -v "$PWD/hermeto-cache:/cachi2:z" -w /source "$HERMETO_IMAGE" \
-              --log-level DEBUG \
-              inject-files /cachi2/output || echo "Inject-files failed"
+        if [ -d ${{ env.LOCAL_CACHE_DIR }}/output ]; then
+          echo "=== Running inject-files ==="
+          
+          podman run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
+            --log-level DEBUG \
+            inject-files /cachi2/output || echo "Inject-files failed"
 
-          else
-            echo "No output directory found, skipping inject-files"
-            exit 1
-          fi
+        else
+          echo "No output directory found, skipping inject-files"
+          exit 1
+        fi
 
-          echo LOCAL_CACHE_DIR_REALPATH=$(realpath "${{ env.LOCAL_CACHE_DIR }}") >> $GITHUB_ENV
+        echo LOCAL_CACHE_DIR_REALPATH=$(realpath "${{ env.LOCAL_CACHE_DIR }}") >> $GITHUB_ENV
 
     - name: "Fix Cache Ownership for Non-Root Buildah"
       if: ${{ inputs.enableHermeticBuild == 'true' }}
