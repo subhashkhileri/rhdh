@@ -117,7 +117,7 @@ runs:
 
           echo "=== Fetching dependencies with hermeto ==="
           # Build hermeto cache for rpm, yarn, and pip (currently does not support ARM64 due to quay.io/konflux-ci/hermeto:latest not having an arm64 image)
-          podman run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
+          docker run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
             --log-level DEBUG \
             fetch-deps --dev-package-managers \
             --source . \
@@ -128,7 +128,7 @@ runs:
             echo "=== Output directory exists, running generate-env ==="
             
             # Generate environment file
-            podman run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
+            docker run --rm -v "$PWD:/source:z" -v "$LOCAL_CACHE_DIR:/cachi2:z" -w /source "$HERMETO_IMAGE" \
                         --log-level DEBUG \
                         generate-env --format env \
                         --output /cachi2/cachi2.env /cachi2/output
@@ -141,7 +141,7 @@ runs:
           if [ -d ./hermeto-cache/output ]; then
             echo "=== Running inject-files ==="
             
-            podman run --rm -v "$PWD:/source:z" -v "$PWD/hermeto-cache:/cachi2:z" -w /source "$HERMETO_IMAGE" \
+            docker run --rm -v "$PWD:/source:z" -v "$PWD/hermeto-cache:/cachi2:z" -w /source "$HERMETO_IMAGE" \
               --log-level DEBUG \
               inject-files /cachi2/output || echo "Inject-files failed"
 
