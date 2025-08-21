@@ -625,12 +625,14 @@ run_tests() {
   local e2e_tests_dir
   e2e_tests_dir=$(pwd)
 
-  yarn install --immutable > /tmp/yarn.install.log.txt 2>&1
+  mkdir -p "${ARTIFACT_DIR}/${project}"
+
+  yarn install --immutable > "${ARTIFACT_DIR}/${project}/yarn.install.log.txt" 2>&1
 
   INSTALL_STATUS=$?
   if [ $INSTALL_STATUS -ne 0 ]; then
     echo "=== YARN INSTALL FAILED ==="
-    cat /tmp/yarn.install.log.txt
+    cat "${ARTIFACT_DIR}/${project}/yarn.install.log.txt"
     exit $INSTALL_STATUS
   else
     echo "Yarn install completed successfully."
