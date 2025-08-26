@@ -17,7 +17,7 @@
     "copy-dynamic-plugins": "echo \"Command moved to dynamic-plugins/package.json\"",
     "clean": "turbo run clean",
     "test": "turbo run test",
-    "test-sealights": "npx sl-jest-runner 'turbo run test' --sl-testStage='Unit Tests' --sl-tokenFile=./sltoken.txt --sl-buildSessionIdFile=./buildSessionId",
+    "test-sealights": "npx sl-jest-runner 'turbo run test' --sl-testStage='Unit Tests' --sl-tokenFile=./sltoken.txt --sl-buildSessionIdFile=./buildSessionId --copyConfigTo=packages,plugins --recursiveCopyDepth=2",
     "lint:check": "turbo run lint:check",
     "lint:fix": "turbo run lint:fix",
     "lint": "turbo run lint",
@@ -47,7 +47,7 @@
     "jest-junit": "^16.0.0",
     "lint-staged": "15.5.2",
     "node-gyp": "10.3.1",
-    "sealights-jest-plugin": "^3.0.4",
+    "sealights-jest-plugin": "^3.0.8",
     "sherif": "1.6.1",
     "turbo": "2.5.5"
   },
