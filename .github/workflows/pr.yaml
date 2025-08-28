@@ -261,7 +261,7 @@ jobs:
 
       - name: Run tests
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: yarn run test-sealights --continue
+        run: yarn run test
         env:
           NODE_DEBUG: sl
           SL_LOG_LEVEL: debug
