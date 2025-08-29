@@ -162,4 +162,9 @@ backend.add(import('@internal/plugin-dynamic-plugins-info-backend'));
 backend.add(import('@internal/plugin-scalprum-backend'));
 backend.add(import('@internal/plugin-licensed-users-info-backend'));
 
+// test
 backend.start();
+
+if (process.env.ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE !== 'false') {
+  console.log('ENABLE_AUTH_PROVIDER_MODULE_OVERRIDE is true');
+}
