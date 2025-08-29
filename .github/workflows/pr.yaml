@@ -111,18 +111,6 @@ jobs:
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         run: tar -xzf packages/backend/dist/bundle.tar.gz -C packages/backend/dist
 
-      - name: Update source map relative paths to absolute paths (plugins only)
-        if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
-        run: |
-          CONTAINER_SOURCE="${{ github.workspace }}"
-          cd $CONTAINER_SOURCE && \
-          for map_file in $(find plugins -path "*/dist/*.map" -type f); do \
-              if grep -q '"sources"' "$map_file"; then \
-                  plugin_base=${map_file%/dist/*}; \
-                  sed -i -E "s|\"(\\.\\.?/)+([^\"]*)\"|\"$CONTAINER_SOURCE/$plugin_base/\\2\"|g" "$map_file"; \
-              fi; \
-          done
-
       - name: Scan all packages with SealLight
         if: ${{ steps.check-image.outputs.is_skipped != 'true' }}
         env:
@@ -141,7 +129,7 @@ jobs:
           )
           
           # Common scan parameters
-          common_params="--tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --excludedpaths webpack --scm none --projectroot ${{ github.workspace }}"
+          common_params="--tokenfile ./sltoken.txt --buildsessionidFile ./buildSessionId --excludedpaths webpack --scm none --projectroot ${{ github.workspace }} --useModulePrefix"
           
           # Verify build session file exists
           if [[ ! -f ./buildSessionId ]]; then
