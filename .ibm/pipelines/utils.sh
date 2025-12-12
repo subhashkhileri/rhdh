@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # shellcheck source=.ibm/pipelines/reporting.sh
-source "${DIR}/reporting.sh"
+# source "${DIR}/reporting.sh"
 # shellcheck source=.ibm/pipelines/lib/log.sh
-source "${DIR}/lib/log.sh"
+# source "${DIR}/lib/log.sh"
 
 retrieve_pod_logs() {
   local pod_name=$1
@@ -392,7 +392,7 @@ check_operator_status() {
 
 # Installs the Crunchy Postgres Operator from Openshift Marketplace using predefined parameters
 install_crunchy_postgres_ocp_operator() {
-  install_subscription postgresql openshift-operators v5 postgresql community-operators openshift-marketplace
+  install_subscription crunchy-postgres-operator openshift-operators v5 crunchy-postgres-operator certified-operators openshift-marketplace
   check_operator_status 300 "openshift-operators" "Crunchy Postgres for Kubernetes" "Succeeded"
 
   # Wait for PostgresCluster CRD to be registered before proceeding
@@ -411,7 +411,7 @@ install_crunchy_postgres_ocp_operator() {
 
 # Installs the Crunchy Postgres Operator from OperatorHub.io
 install_crunchy_postgres_k8s_operator() {
-  install_subscription postgresql openshift-operators v5 postgresql community-operators openshift-marketplace
+  install_subscription crunchy-postgres-operator openshift-operators v5 crunchy-postgres-operator certified-operators openshift-marketplace
   check_operator_status 300 "operators" "Crunchy Postgres for Kubernetes" "Succeeded"
 
   # Wait for PostgresCluster CRD to be registered before proceeding
