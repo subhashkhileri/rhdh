@@ -1,9 +1,9 @@
 #!/bin/bash
 
 # shellcheck source=.ibm/pipelines/reporting.sh
-# source "${DIR}/reporting.sh"
+source "${DIR}/reporting.sh"
 # shellcheck source=.ibm/pipelines/lib/log.sh
-# source "${DIR}/lib/log.sh"
+source "${DIR}/lib/log.sh"
 
 retrieve_pod_logs() {
   local pod_name=$1
