@@ -9,6 +9,73 @@ RUN_CONFIG_FILE="$SCRIPT_DIR/.local-test/run-config.env"
 # shellcheck source=../.ibm/pipelines/lib/log.sh
 source "$SCRIPT_DIR/../.ibm/pipelines/lib/log.sh"
 
+# ========== CLI Flags ==========
+show_help() {
+    cat << EOF
+Usage: ./local-run.sh [OPTIONS]
+
+Run RHDH e2e tests locally against an OpenShift cluster.
+
+Options:
+  -j, --job JOB_NAME      Job name (e.g., pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm)
+  -r, --repo QUAY_REPO    Quay repository (e.g., rhdh/rhdh-hub-rhel9)
+  -t, --tag TAG_NAME      Image tag (e.g., next, latest, 1.5)
+  -p, --pr PR_NUMBER      PR number (sets repo to rhdh-community/rhdh, tag to pr-<number>)
+  -s, --skip-tests        Deploy only, skip running tests
+  -h, --help              Show this help message
+
+Examples:
+  # Interactive mode (default)
+  ./local-run.sh
+
+  # Deploy downstream next image, skip tests
+  ./local-run.sh --repo rhdh/rhdh-hub-rhel9 --tag next --skip-tests
+
+  # Test a PR image
+  ./local-run.sh --pr 4023 --skip-tests
+
+  # Full flags
+  ./local-run.sh -j pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm -r rhdh/rhdh-hub-rhel9 -t next -s
+
+EOF
+    exit 0
+}
+
+# Parse command line arguments
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        -j|--job)
+            CLI_JOB_NAME="$2"
+            shift 2
+            ;;
+        -r|--repo)
+            CLI_QUAY_REPO="$2"
+            shift 2
+            ;;
+        -t|--tag)
+            CLI_TAG_NAME="$2"
+            shift 2
+            ;;
+        -p|--pr)
+            CLI_QUAY_REPO="rhdh-community/rhdh"
+            CLI_TAG_NAME="pr-$2"
+            shift 2
+            ;;
+        -s|--skip-tests)
+            CLI_SKIP_TESTS="true"
+            shift
+            ;;
+        -h|--help)
+            show_help
+            ;;
+        *)
+            log::error "Unknown option: $1"
+            echo "Use --help for usage information"
+            exit 1
+            ;;
+    esac
+done
+
 # ========== Prerequisites Check ==========
 PREREQ_FAILED=false
 MISSING_CMDS=""
@@ -69,9 +136,21 @@ fi
 # ========== Interactive Configuration ==========
 log::section "RHDH Local Test Runner"
 
-# Check for previous configuration
+# Check if CLI flags provide all required options (skip interactive mode)
+CLI_MODE="false"
+if [[ -n "$CLI_QUAY_REPO" && -n "$CLI_TAG_NAME" ]]; then
+    CLI_MODE="true"
+    JOB_NAME="${CLI_JOB_NAME:-pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm}"
+    QUAY_REPO="$CLI_QUAY_REPO"
+    TAG_NAME="$CLI_TAG_NAME"
+    SKIP_TESTS="${CLI_SKIP_TESTS:-false}"
+    log::info "Using CLI flags (non-interactive mode)"
+    echo ""
+fi
+
+# Check for previous configuration (only if not in CLI mode)
 USE_PREVIOUS="false"
-if [[ -f "$RUN_CONFIG_FILE" ]]; then
+if [[ "$CLI_MODE" == "false" && -f "$RUN_CONFIG_FILE" ]]; then
     echo "Previous configuration found:"
     echo "----------------------------------------"
     source "$RUN_CONFIG_FILE"
@@ -88,7 +167,7 @@ if [[ -f "$RUN_CONFIG_FILE" ]]; then
     fi
 fi
 
-if [[ "$USE_PREVIOUS" == "false" ]]; then
+if [[ "$CLI_MODE" == "false" && "$USE_PREVIOUS" == "false" ]]; then
     # Run mode selection (Deploy only is default for local debugging)
     echo "What do you want to run?"
     echo "  1) Deploy only (recommended for local headed debugging)"
@@ -210,8 +289,10 @@ log::info "JOB_NAME:    $JOB_NAME"
 log::info "IMAGE:       quay.io/${QUAY_REPO}:${TAG_NAME}"
 log::info "SKIP_TESTS:  $SKIP_TESTS"
 echo ""
-read -r -p "Press Enter to continue or Ctrl+C to abort..."
-echo ""
+if [[ "$CLI_MODE" == "false" ]]; then
+    read -r -p "Press Enter to continue or Ctrl+C to abort..."
+    echo ""
+fi
 
 # Pull runner image first (can take a while)
 log::section "Pulling runner container image"

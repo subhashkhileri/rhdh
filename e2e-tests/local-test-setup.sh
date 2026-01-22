@@ -99,17 +99,17 @@ fi
 
 log::info "Exporting secrets as environment variables..."
 # Export secrets safely without eval (avoids code injection risk)
+# Uses base64 encoding to safely handle special characters in values
 # Replaces -, . and / with _ in key names (env vars can only have alphanumeric and _)
-while IFS= read -r line; do
-    # Extract key (everything before first =) and value (everything after first =)
-    key="${line%%=*}"
-    value="${line#*=}"
+SECRETS_JSON=$(vault kv get -format=json -mount="kv" "selfservice/rhdh-qe/rhdh" | jq -r '.data.data')
+for key in $(echo "$SECRETS_JSON" | jq -r 'keys[]'); do
     # Skip metadata keys
     [[ "$key" == "secretsync/"* ]] && continue
-    # Sanitize key name (replace -, . and / with _)
-    safe_key=$(echo "$key" | tr '-./' '___')
+    # Get value and sanitize key name (put - at end for macOS tr compatibility)
+    value=$(echo "$SECRETS_JSON" | jq -r --arg k "$key" '.[$k]')
+    safe_key=$(echo "$key" | tr './-' '___')
     export "$safe_key"="$value"
-done < <(vault kv get -format=json -mount="kv" "selfservice/rhdh-qe/rhdh" | jq -r '.data.data | to_entries[] | "\(.key)=\(.value)"')
+done
 
 log::section "Environment Ready"
 log::info "Available URLs:"

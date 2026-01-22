@@ -86,6 +86,30 @@ Follow the interactive prompts to select:
 
 After the container finishes, you're back on your host with the cluster still accessible.
 
+### CLI Flags (Non-Interactive Mode)
+
+For automation or quick runs, use CLI flags to skip interactive prompts:
+
+```bash
+# Test a PR image
+./local-run.sh --pr 4023 --skip-tests
+
+# Deploy downstream next image
+./local-run.sh --repo rhdh/rhdh-hub-rhel9 --tag next --skip-tests
+
+# Full flags
+./local-run.sh -j pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm -r rhdh/rhdh-hub-rhel9 -t next -s
+```
+
+| Flag               | Description                                                          |
+| ------------------ | -------------------------------------------------------------------- |
+| `-j, --job`        | Job name                                                             |
+| `-r, --repo`       | Quay repository (e.g., `rhdh/rhdh-hub-rhel9`)                        |
+| `-t, --tag`        | Image tag (e.g., `next`, `latest`, `1.5`)                            |
+| `-p, --pr`         | PR number (sets repo to `rhdh-community/rhdh`, tag to `pr-<number>`) |
+| `-s, --skip-tests` | Deploy only, skip running tests                                      |
+| `-h, --help`       | Show help message                                                    |
+
 ---
 
 ### Running Tests Locally in Headed Mode (Recommended for Debugging)
