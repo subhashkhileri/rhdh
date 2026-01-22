@@ -842,7 +842,7 @@ check_backstage_running() {
       fi
 
       if [ -n "${crash_pods}" ]; then
-        log::error "❌ Detected pods in CrashLoopBackOff state - failing fast instead of waiting:"
+        log::error "Detected pods in CrashLoopBackOff state - failing fast instead of waiting:"
         echo "${crash_pods}"
         log::error "Deployment status:"
         oc get deployment -l "app.kubernetes.io/instance in (${release_name},redhat-developer-hub,developer-hub)" -n "${namespace}" -o wide 2> /dev/null || true
