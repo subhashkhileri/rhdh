@@ -43,11 +43,25 @@ log::success "Secrets written to /tmp/secrets/"
 
 # Login using service account token from host
 log::section "Cluster Service Account and Token Management"
-oc login --token="$OC_TOKEN" --server="$OC_SERVER" --insecure-skip-tls-verify=true
 
-export K8S_CLUSTER_URL="$OC_SERVER"
-export K8S_CLUSTER_TOKEN="$OC_TOKEN"
+# K8S_CLUSTER_URL, K8S_CLUSTER_TOKEN, and CONTAINER_PLATFORM are passed from local-run.sh
+export K8S_CLUSTER_URL
+export K8S_CLUSTER_TOKEN
+export CONTAINER_PLATFORM
 log::info "K8S_CLUSTER_URL: $K8S_CLUSTER_URL"
+log::info "CONTAINER_PLATFORM: $CONTAINER_PLATFORM"
+
+# Login based on platform
+if [[ "$CONTAINER_PLATFORM" == "ocp" || "$CONTAINER_PLATFORM" == "osd-gcp" ]]; then
+    oc login --token="$K8S_CLUSTER_TOKEN" --server="$K8S_CLUSTER_URL" --insecure-skip-tls-verify=true
+else
+    # For AKS/EKS/GKE, configure kubectl with the token
+    kubectl config set-cluster local-cluster --server="$K8S_CLUSTER_URL" --insecure-skip-tls-verify=true
+    kubectl config set-credentials local-user --token="$K8S_CLUSTER_TOKEN"
+    kubectl config set-context local-context --cluster=local-cluster --user=local-user
+    kubectl config use-context local-context
+    kubectl cluster-info
+fi
 
 log::info "Service account token is valid for 48 hours."
 
@@ -61,7 +75,12 @@ export ARTIFACT_DIR="/tmp/rhdh/.local-test/artifact_dir"
 mkdir -p "$ARTIFACT_DIR"
 log::info "ARTIFACT_DIR=${ARTIFACT_DIR}"
 
-export IS_OPENSHIFT="true"
+# Set IS_OPENSHIFT based on platform
+if [[ "$CONTAINER_PLATFORM" == "ocp" || "$CONTAINER_PLATFORM" == "osd-gcp" ]]; then
+    export IS_OPENSHIFT="true"
+else
+    export IS_OPENSHIFT="false"
+fi
 log::info "IS_OPENSHIFT=${IS_OPENSHIFT}"
 
 # These are passed from local-run.sh - export them for child scripts
@@ -77,11 +96,15 @@ log::info "SKIP_TESTS=${SKIP_TESTS}"
 export RELEASE_BRANCH_NAME="main"
 log::info "RELEASE_BRANCH_NAME=${RELEASE_BRANCH_NAME}"
 
-export CONTAINER_PLATFORM="ocp"
 log::info "CONTAINER_PLATFORM=${CONTAINER_PLATFORM}"
 
+# Get platform version based on platform type
 log::info "Getting container platform version"
-CONTAINER_PLATFORM_VERSION=$(oc version --output json 2> /dev/null | jq -r ".openshiftVersion" | cut -d"." -f1,2 || echo "unknown")
+if [[ "$CONTAINER_PLATFORM" == "ocp" || "$CONTAINER_PLATFORM" == "osd-gcp" ]]; then
+    CONTAINER_PLATFORM_VERSION=$(oc version --output json 2> /dev/null | jq -r ".openshiftVersion" | cut -d"." -f1,2 || echo "unknown")
+else
+    CONTAINER_PLATFORM_VERSION=$(kubectl version --output json 2> /dev/null | jq -r '.serverVersion.major + "." + .serverVersion.minor' || echo "unknown")
+fi
 export CONTAINER_PLATFORM_VERSION
 log::info "CONTAINER_PLATFORM_VERSION=${CONTAINER_PLATFORM_VERSION}"
 
@@ -92,13 +115,22 @@ log::info "Using Image: ${QUAY_REPO}:${TAG_NAME}"
 
 # Pre-compute URLs and save config BEFORE deployment (so it's available even if deployment fails)
 log::section "Preparing Configuration"
-K8S_CLUSTER_ROUTER_BASE=$(oc get route console -n openshift-console -o=jsonpath='{.spec.host}' | sed 's/^[^.]*\.//')
-if [[ "$JOB_NAME" == *"operator"* ]]; then
-    SHOWCASE_URL="https://backstage-showcase.${K8S_CLUSTER_ROUTER_BASE}"
-    SHOWCASE_RBAC_URL="https://backstage-showcase-rbac.${K8S_CLUSTER_ROUTER_BASE}"
+
+if [[ "$IS_OPENSHIFT" == "true" ]]; then
+    # OpenShift platforms - get router base from console route
+    K8S_CLUSTER_ROUTER_BASE=$(oc get route console -n openshift-console -o=jsonpath='{.spec.host}' | sed 's/^[^.]*\.//')
+    if [[ "$JOB_NAME" == *"operator"* ]]; then
+        SHOWCASE_URL="https://backstage-showcase.${K8S_CLUSTER_ROUTER_BASE}"
+        SHOWCASE_RBAC_URL="https://backstage-showcase-rbac.${K8S_CLUSTER_ROUTER_BASE}"
+    else
+        SHOWCASE_URL="https://rhdh-developer-hub-showcase.${K8S_CLUSTER_ROUTER_BASE}"
+        SHOWCASE_RBAC_URL="https://rhdh-rbac-developer-hub-showcase-rbac.${K8S_CLUSTER_ROUTER_BASE}"
+    fi
 else
-    SHOWCASE_URL="https://rhdh-developer-hub-showcase.${K8S_CLUSTER_ROUTER_BASE}"
-    SHOWCASE_RBAC_URL="https://rhdh-rbac-developer-hub-showcase-rbac.${K8S_CLUSTER_ROUTER_BASE}"
+    # Non-OpenShift platforms (AKS/EKS/GKE) - URLs will be determined after deployment via ingress
+    log::info "Non-OpenShift platform detected. URLs will be determined after deployment."
+    SHOWCASE_URL="TBD_AFTER_DEPLOYMENT"
+    SHOWCASE_RBAC_URL="TBD_AFTER_DEPLOYMENT"
 fi
 
 # Save config early so it's available even if one deployment fails
@@ -112,6 +144,8 @@ JOB_NAME="${JOB_NAME}"
 QUAY_REPO="${QUAY_REPO}"
 TAG_NAME="${TAG_NAME}"
 K8S_CLUSTER_URL="${K8S_CLUSTER_URL}"
+CONTAINER_PLATFORM="${CONTAINER_PLATFORM}"
+IS_OPENSHIFT="${IS_OPENSHIFT}"
 EOF
 log::info "Config saved to: .local-test/config.env"
 log::info "  Showcase URL:      ${SHOWCASE_URL}"

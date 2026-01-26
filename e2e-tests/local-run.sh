@@ -14,10 +14,11 @@ show_help() {
     cat << EOF
 Usage: ./local-run.sh [OPTIONS]
 
-Run RHDH e2e tests locally against an OpenShift cluster.
+Run RHDH e2e tests locally against a Kubernetes cluster (OCP, AKS, EKS, GKE).
 
 Options:
   -j, --job JOB_NAME      Job name (e.g., pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm)
+                          Platform is derived from job name (*ocp*, *aks*, *eks*, *gke*, *osd*)
   -r, --repo QUAY_REPO    Quay repository (e.g., rhdh/rhdh-hub-rhel9)
   -t, --tag TAG_NAME      Image tag (e.g., next, latest, 1.5)
   -p, --pr PR_NUMBER      PR number (sets repo to rhdh-community/rhdh, tag to pr-<number>)
@@ -28,14 +29,20 @@ Examples:
   # Interactive mode (default)
   ./local-run.sh
 
-  # Deploy downstream next image, skip tests
+  # Deploy downstream next image on OCP, skip tests
   ./local-run.sh --repo rhdh/rhdh-hub-rhel9 --tag next --skip-tests
 
-  # Test a PR image
+  # Test a PR image on OCP
   ./local-run.sh --pr 4023 --skip-tests
 
-  # Full flags
-  ./local-run.sh -j pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm -r rhdh/rhdh-hub-rhel9 -t next -s
+  # Run on AKS
+  ./local-run.sh -j periodic-ci-aks-helm-nightly -r rhdh/rhdh-hub-rhel9 -t next -s
+
+  # Run on EKS
+  ./local-run.sh -j periodic-ci-eks-helm-nightly -r rhdh/rhdh-hub-rhel9 -t next -s
+
+  # Run on GKE
+  ./local-run.sh -j periodic-ci-gke-helm-nightly -r rhdh/rhdh-hub-rhel9 -t next -s
 
 EOF
     exit 0
@@ -81,7 +88,8 @@ PREREQ_FAILED=false
 MISSING_CMDS=""
 
 # Check required binaries (bc is used for memory comparison)
-for cmd in podman oc vault jq curl rsync bc; do
+# Note: kubectl is needed for AKS/EKS, oc is needed for OCP
+for cmd in podman oc kubectl vault jq curl rsync bc; do
     if ! command -v "$cmd" &> /dev/null; then
         MISSING_CMDS="$MISSING_CMDS $cmd"
         PREREQ_FAILED=true
@@ -112,19 +120,12 @@ if command -v podman &> /dev/null; then
     fi
 fi
 
-# Check if logged into OpenShift
-if command -v oc &> /dev/null; then
-    if ! oc whoami &> /dev/null; then
-        log::error "Not logged into OpenShift"
-        log::info "  Run: oc login <cluster-url>"
-        PREREQ_FAILED=true
-    fi
-fi
+# Note: Cluster login check happens after job selection (platform-specific)
 
 if [[ -n "$MISSING_CMDS" ]]; then
     log::error "Missing required commands:$MISSING_CMDS"
     log::info "  Install missing tools:"
-    log::info "    brew install podman jq rsync openshift-cli"
+    log::info "    brew install podman jq rsync openshift-cli kubernetes-cli"
     log::info "    (bc is pre-installed on macOS, install via 'brew install bc' if missing)"
     log::info "    brew tap hashicorp/tap && brew install hashicorp/tap/vault"
 fi
@@ -190,7 +191,10 @@ if [[ "$CLI_MODE" == "false" && "$USE_PREVIOUS" == "false" ]]; then
     echo "  3) OCP Operator Nightly (*ocp*operator*nightly*)"
     echo "  4) OCP Helm Upgrade (*ocp*helm*upgrade*nightly*)"
     echo "  5) Auth Providers (*ocp*operator*auth-providers*nightly*)"
-    echo "  6) Custom job name"
+    echo "  6) AKS Helm Nightly (*aks*helm*nightly*)"
+    echo "  7) EKS Helm Nightly (*eks*helm*nightly*)"
+    echo "  8) GKE Helm Nightly (*gke*helm*nightly*)"
+    echo "  9) Custom job name"
     echo ""
     read -r -p "Enter choice [1]: " job_choice
     job_choice=${job_choice:-1}
@@ -201,7 +205,10 @@ if [[ "$CLI_MODE" == "false" && "$USE_PREVIOUS" == "false" ]]; then
         3) JOB_NAME="periodic-ci-ocp-operator-nightly" ;;
         4) JOB_NAME="periodic-ci-ocp-helm-upgrade-nightly" ;;
         5) JOB_NAME="periodic-ci-ocp-operator-auth-providers-nightly" ;;
-        6)
+        6) JOB_NAME="periodic-ci-aks-helm-nightly" ;;
+        7) JOB_NAME="periodic-ci-eks-helm-nightly" ;;
+        8) JOB_NAME="periodic-ci-gke-helm-nightly" ;;
+        9)
             read -r -p "Enter custom JOB_NAME: " JOB_NAME
             ;;
         *) JOB_NAME="pull-ci-redhat-developer-rhdh-main-e2e-ocp-helm" ;;
@@ -284,8 +291,22 @@ if [[ "$TAG_COUNT" -eq 0 ]]; then
 fi
 log::success "Image verified: quay.io/${QUAY_REPO}:${TAG_NAME}"
 
+# Derive CONTAINER_PLATFORM from JOB_NAME
+if [[ "$JOB_NAME" == *"aks"* ]]; then
+    CONTAINER_PLATFORM="aks"
+elif [[ "$JOB_NAME" == *"eks"* ]]; then
+    CONTAINER_PLATFORM="eks"
+elif [[ "$JOB_NAME" == *"gke"* ]]; then
+    CONTAINER_PLATFORM="gke"
+elif [[ "$JOB_NAME" == *"osd"* ]]; then
+    CONTAINER_PLATFORM="osd-gcp"
+else
+    CONTAINER_PLATFORM="ocp"
+fi
+
 log::section "Configuration Summary"
 log::info "JOB_NAME:    $JOB_NAME"
+log::info "PLATFORM:    $CONTAINER_PLATFORM"
 log::info "IMAGE:       quay.io/${QUAY_REPO}:${TAG_NAME}"
 log::info "SKIP_TESTS:  $SKIP_TESTS"
 echo ""
@@ -305,16 +326,81 @@ log::section "Vault Login"
 vault login -no-print -method=oidc
 VAULT_TOKEN=$(vault print token)
 
-# Create service account in dedicated namespace and get token
+# Set up cluster access based on platform (CONTAINER_PLATFORM already derived above)
 log::section "Setting up cluster access"
+log::info "CONTAINER_PLATFORM: $CONTAINER_PLATFORM"
+
 SA_NAME="rhdh-local-tester"
 SA_NAMESPACE="rhdh-local-test"
-OC_SERVER=$(oc whoami --show-server)
-oc create namespace "$SA_NAMESPACE" 2>/dev/null || log::info "Namespace already exists"
-oc create serviceaccount "$SA_NAME" -n "$SA_NAMESPACE" 2>/dev/null || log::info "Service account already exists"
-oc adm policy add-cluster-role-to-user cluster-admin "system:serviceaccount:${SA_NAMESPACE}:${SA_NAME}" 2>/dev/null || true
-OC_TOKEN=$(oc create token "$SA_NAME" -n "$SA_NAMESPACE" --duration=48h)
-log::info "K8S_CLUSTER_URL: $OC_SERVER"
+SA_SECRET_NAME="${SA_NAME}-secret"
+
+# Check cluster connectivity and create service account token based on platform
+if [[ "$CONTAINER_PLATFORM" == "ocp" || "$CONTAINER_PLATFORM" == "osd-gcp" ]]; then
+    # OpenShift platforms - use oc commands
+    if ! oc cluster-info &> /dev/null; then
+        log::error "Not logged into OpenShift cluster"
+        log::info "  Run: oc login <cluster-url>"
+        exit 1
+    fi
+    K8S_CLUSTER_URL=$(oc whoami --show-server)
+    oc create namespace "$SA_NAMESPACE" 2>/dev/null || log::info "Namespace already exists"
+    oc create serviceaccount "$SA_NAME" -n "$SA_NAMESPACE" 2>/dev/null || log::info "Service account already exists"
+    oc adm policy add-cluster-role-to-user cluster-admin "system:serviceaccount:${SA_NAMESPACE}:${SA_NAME}" 2>/dev/null || true
+    K8S_CLUSTER_TOKEN=$(oc create token "$SA_NAME" -n "$SA_NAMESPACE" --duration=48h)
+else
+    # Non-OpenShift platforms (AKS, EKS, GKE) - use kubectl commands
+    if ! kubectl cluster-info &> /dev/null; then
+        log::error "Cannot connect to Kubernetes cluster"
+        log::info "  Ensure your kubeconfig is set correctly"
+        log::info "  Run: kubectl cluster-info"
+        exit 1
+    fi
+    K8S_CLUSTER_URL=$(kubectl config view --minify -o jsonpath='{.clusters[0].cluster.server}')
+
+    # Check if token already exists
+    if token="$(kubectl get secret ${SA_SECRET_NAME} -n ${SA_NAMESPACE} -o jsonpath='{.data.token}' 2>/dev/null)"; then
+        K8S_CLUSTER_TOKEN=$(echo "${token}" | base64 --decode)
+        log::info "Using existing service account token"
+    else
+        # Create namespace and service account
+        kubectl create namespace "$SA_NAMESPACE" 2>/dev/null || log::info "Namespace already exists"
+        if ! kubectl get serviceaccount ${SA_NAME} -n ${SA_NAMESPACE} &> /dev/null; then
+            log::info "Creating service account ${SA_NAME}..."
+            kubectl create serviceaccount ${SA_NAME} -n ${SA_NAMESPACE}
+            kubectl create clusterrolebinding ${SA_NAME}-binding \
+                --clusterrole=cluster-admin \
+                --serviceaccount=${SA_NAMESPACE}:${SA_NAME} 2>/dev/null || true
+        fi
+
+        # Create secret for service account token (non-OpenShift approach)
+        log::info "Creating secret for service account token..."
+        kubectl apply --namespace="${SA_NAMESPACE}" -f - <<EOF
+apiVersion: v1
+kind: Secret
+metadata:
+  name: ${SA_SECRET_NAME}
+  namespace: ${SA_NAMESPACE}
+  annotations:
+    kubernetes.io/service-account.name: ${SA_NAME}
+type: kubernetes.io/service-account-token
+EOF
+
+        # Wait for token to be populated
+        log::info "Waiting for token to be populated..."
+        for i in {1..12}; do
+            if token="$(kubectl get secret ${SA_SECRET_NAME} -n ${SA_NAMESPACE} -o jsonpath='{.data.token}' 2>/dev/null)" && [[ -n "$token" ]]; then
+                log::info "Token acquired on attempt $i"
+                break
+            elif [[ $i -eq 12 ]]; then
+                log::error "Failed to get token after $i attempts"
+                exit 1
+            fi
+            sleep 5
+        done
+        K8S_CLUSTER_TOKEN=$(echo "${token}" | base64 --decode)
+    fi
+fi
+log::info "K8S_CLUSTER_URL: $K8S_CLUSTER_URL"
 
 # Copy repo to work directory (keeps original repo clean)
 log::section "Copying repo to work directory"
@@ -344,8 +430,9 @@ podman run -v "$WORK_DIR":/tmp/rhdh \
     --mount type=tmpfs,destination=/tmp/secrets \
     -e VAULT_ADDR="$VAULT_ADDR" \
     -e VAULT_TOKEN="$VAULT_TOKEN" \
-    -e OC_SERVER="$OC_SERVER" \
-    -e OC_TOKEN="$OC_TOKEN" \
+    -e K8S_CLUSTER_URL="$K8S_CLUSTER_URL" \
+    -e K8S_CLUSTER_TOKEN="$K8S_CLUSTER_TOKEN" \
+    -e CONTAINER_PLATFORM="$CONTAINER_PLATFORM" \
     -e JOB_NAME="$JOB_NAME" \
     -e QUAY_REPO="$QUAY_REPO" \
     -e TAG_NAME="$TAG_NAME" \
@@ -358,7 +445,11 @@ CONTAINER_EXIT_CODE=${PIPESTATUS[0]}
 echo ""
 log::section "Container (rhdh-e2e-runner) Finished - Back on Host"
 log::info "You are now back on your host machine."
-log::info "You are still logged into the cluster via 'oc' CLI."
+if [[ "$CONTAINER_PLATFORM" == "ocp" || "$CONTAINER_PLATFORM" == "osd-gcp" ]]; then
+    log::info "You are still logged into the cluster via 'oc' CLI."
+else
+    log::info "You are still logged into the cluster via 'kubectl' CLI."
+fi
 echo ""
 
 if [[ "$CONTAINER_EXIT_CODE" -ne 0 ]]; then
@@ -367,8 +458,13 @@ if [[ "$CONTAINER_EXIT_CODE" -ne 0 ]]; then
     log::info "Troubleshooting:"
     echo "   - Container log: $CONTAINER_LOG"
     echo "   - Pod logs: e2e-tests/.local-test/rhdh/.local-test/artifact_dir/"
-    echo "   - Check cluster pods: oc get pods -A"
-    echo "   - Check pod logs: oc logs <pod-name> -n <namespace>"
+    if [[ "$CONTAINER_PLATFORM" == "ocp" || "$CONTAINER_PLATFORM" == "osd-gcp" ]]; then
+        echo "   - Check cluster pods: oc get pods -A"
+        echo "   - Check pod logs: oc logs <pod-name> -n <namespace>"
+    else
+        echo "   - Check cluster pods: kubectl get pods -A"
+        echo "   - Check pod logs: kubectl logs <pod-name> -n <namespace>"
+    fi
     echo ""
     exit $CONTAINER_EXIT_CODE
 fi

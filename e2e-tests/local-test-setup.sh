@@ -1,6 +1,7 @@
 #!/bin/bash
 # This script sets up your local environment for running Playwright tests in headed mode.
-# It reads config from /tmp/rhdh/.local-test/config.env and exports all secrets as environment variables.
+# It reads config from .local-test/rhdh/.local-test/config.env and exports all secrets as environment variables.
+# Supports both OpenShift (OCP, OSD-GCP) and non-OpenShift (AKS, EKS, GKE) platforms.
 #
 # Usage (run from e2e-tests directory):
 #   source local-test-setup.sh [showcase|rbac]
@@ -67,24 +68,45 @@ export TAG_NAME
 export K8S_CLUSTER_URL
 export SHOWCASE_URL
 export SHOWCASE_RBAC_URL
+export CONTAINER_PLATFORM
+export IS_OPENSHIFT
 
 log::info "Configuration:"
-log::info "  JOB_NAME:       $JOB_NAME"
-log::info "  IMAGE:          quay.io/${QUAY_REPO}:${TAG_NAME}"
-log::info "  K8S_CLUSTER_URL: $K8S_CLUSTER_URL"
+log::info "  JOB_NAME:         $JOB_NAME"
+log::info "  PLATFORM:         $CONTAINER_PLATFORM"
+log::info "  IMAGE:            quay.io/${QUAY_REPO}:${TAG_NAME}"
+log::info "  K8S_CLUSTER_URL:  $K8S_CLUSTER_URL"
 echo ""
 
 # Get K8S_CLUSTER_TOKEN fresh (not stored in file for security)
 log::info "Getting K8S_CLUSTER_TOKEN from cluster..."
-if ! oc whoami &>/dev/null; then
-    log::error "Not logged into OpenShift."
-    log::info "Please login first: oc login"
-    return 1 2>/dev/null || exit 1
-fi
-# Use the existing service account token created during deployment
 SA_NAME="rhdh-local-tester"
 SA_NAMESPACE="rhdh-local-test"
-K8S_CLUSTER_TOKEN=$(oc create token "$SA_NAME" -n "$SA_NAMESPACE" --duration=48h)
+SA_SECRET_NAME="${SA_NAME}-secret"
+
+if [[ "$IS_OPENSHIFT" == "true" ]]; then
+    # OpenShift platforms - use oc create token
+    if ! oc whoami &>/dev/null; then
+        log::error "Not logged into OpenShift."
+        log::info "Please login first: oc login"
+        return 1 2>/dev/null || exit 1
+    fi
+    K8S_CLUSTER_TOKEN=$(oc create token "$SA_NAME" -n "$SA_NAMESPACE" --duration=48h)
+else
+    # Non-OpenShift platforms (AKS/EKS/GKE) - get token from secret
+    if ! kubectl cluster-info &>/dev/null; then
+        log::error "Cannot connect to Kubernetes cluster."
+        log::info "Please ensure your kubeconfig is set correctly: kubectl cluster-info"
+        return 1 2>/dev/null || exit 1
+    fi
+    token=$(kubectl get secret ${SA_SECRET_NAME} -n ${SA_NAMESPACE} -o jsonpath='{.data.token}' 2>/dev/null)
+    if [[ -z "$token" ]]; then
+        log::error "Service account token not found."
+        log::info "Please run deployment first: ./local-run.sh"
+        return 1 2>/dev/null || exit 1
+    fi
+    K8S_CLUSTER_TOKEN=$(echo "${token}" | base64 --decode)
+fi
 export K8S_CLUSTER_TOKEN
 log::success "K8S_CLUSTER_TOKEN: [set]"
 echo ""
