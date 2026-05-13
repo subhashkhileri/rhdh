@@ -71,7 +71,11 @@ cluster_api="https://api.${namespace}.rhdh-qe.devcluster.openshift.com:6443"
 log::info "Logging in to cluster: $cluster_api"
 
 if ! oc login "$cluster_api" --username "$CLUSTER_ADMIN_USERNAME" --password "$CLUSTER_ADMIN_PASSWORD" --insecure-skip-tls-verify=true; then
-  log::error "Login failed. The cluster may be expired or the credentials may not be set up yet."
+  log::error "Login failed. The cluster may be expired or the HTPasswd identity provider is not configured."
+  log::info "To enable cluster login for investigation:"
+  log::info "  1. Add [debug] to your PR title  →  e.g. 'fix: my change [debug]'"
+  log::info "  2. Re-trigger the CI job         →  /test e2e-ocp-helm"
+  log::info "  3. Re-run this script with the new job's prow URL"
   exit 1
 fi
 
