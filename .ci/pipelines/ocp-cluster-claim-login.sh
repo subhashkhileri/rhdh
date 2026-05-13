@@ -51,7 +51,7 @@ if ! vault token lookup > /dev/null 2>&1; then
 fi
 
 log::info "Fetching cluster credentials from Vault..."
-vault_creds=$(vault kv get -format=json -mount=kv "${VAULT_BASE_PATH}/ephemeral_cluster" 2>/dev/null || true)
+vault_creds=$(vault kv get -format=json -mount=kv "${VAULT_BASE_PATH}/ephemeral_cluster" 2> /dev/null || true)
 
 CLUSTER_ADMIN_USERNAME=$(echo "$vault_creds" | jq -r '.data.data.EPHEMERAL_CLUSTER_ADMIN_USERNAME // empty')
 CLUSTER_ADMIN_PASSWORD=$(echo "$vault_creds" | jq -r '.data.data.EPHEMERAL_CLUSTER_ADMIN_PASSWORD // empty')
